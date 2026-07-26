@@ -62,16 +62,17 @@ namespace util::strings {
 	}
 
 	inline std::string toZodKey(std::string res) {
+		res.erase(
+			std::remove_if(res.begin(), res.end(), [](char c) {
+				return c == '\'' || c == '-';
+			}),
+			res.end()
+		);
 		for (auto &c: res) {
-			if (c == '\'') {
-				c = ' ';
-				continue;
-			}
 			if (!std::isalnum(c) && !std::isspace(c)) {
 				c = ' ';
 				continue;
 			}
-			c = std::tolower(c);
 		}
 
 		std::string ret;

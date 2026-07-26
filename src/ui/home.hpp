@@ -25,6 +25,10 @@ namespace ui {
 			void updateData();
 			void initializeData();
 
+			void dispose() override {
+				pcap.stop();
+			}
+
 			std::optional<std::string> getSelectedRegion();
 
 			Child build(const Element &element) override;
