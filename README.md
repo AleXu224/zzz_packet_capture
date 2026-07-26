@@ -14,7 +14,7 @@ It can be used to quickly import all your data into [Zenless Optimizer](https://
 - Adjust your export settings if you want to, then click "Copy to clipboard" to get the exported data
 
 # Disclaimer
-This is gonna break every time a new version comes out. I am a am singlehandedly maintaining this and reverse engineering is not exactly my forte, so it might take a bit for me to get it working again. If you have experience and want to help your best bet is to help with updating [GracefulDumper](https://github.com/AleXu224/GracefulDumper) to the latest version of the game, since that is the main blocker.
+This is gonna break every time a new version comes out. I am singlehandedly maintaining this and reverse engineering is not exactly my forte, so it might take a bit for me to get it working again. If you have experience and want to help your best bet is to help with updating [GracefulDumper](https://github.com/AleXu224/GracefulDumper) to the latest version of the game, since that is the main blocker.
 
 If you are eager to help but have no experience then please don't hesitate to reach out and ask for how things are done, I might not be the best at it myself but I can certainly help you get started.
 
