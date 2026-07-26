@@ -1,0 +1,7 @@
+#pragma once
+
+#include "string_view"
+
+namespace crypto {
+	constexpr std::string_view clientPrivatekey = "<RSAKeyValue><Modulus>rkQoCtGS5YSrzxm89Wq3GSR/uw5AJDwGqu+tkXViZwOF8H6xgL7KPi2OVATHCoaNFLTAD5nlLSjg0pHEAqHafvXtzj4Gh8tvF2A6/8yB5ceT3Oszo9UR5d7hsI55sxb37QUpQLHYoxKs79FohJ74Z5V2LgSY+0XvbGxMHxhxHTc=</Modulus><Exponent>AQAB</Exponent><D>dBCe3r3Aaa9YQsIwsP/XXR6LGAmgvMFh631gi62z0UpubcPj8wyfZJQw5FKeQqtk0XKlLH7iPZapTnWZJ+umuqf84RcuilwItH3yTrJw8PeIIxuKE8E+TknKni2I7SYyKpuuRbW96DC5WhHS4QNRbNwoyCQPfK0WobQItAWuWFk=</D><P>59AY/wNEm513fJDXqnnz5D8VrwLnAAPPhiKAy+RsjPh1MDFt2clTQOdL7z1RWwh1fFF819bIUixDJZXie3l9zQ==</P><Q>wHLxcB3N2s/GJgco35bEJPQkrv184PXnJRO2cTxCR8ZTrN62oKZbzD/6j5EcZA6hUou+YjhPLsqcaFJVI2DjEw==</Q><DP>CjugbtlpFOl9lc0bCBZ8Eq5KOcCKC/EfHw+02ctKk2qAWdFExSFjAHF1Y6k0Ry13ajZ6qVh83UvA5w7XwZWaXQ==</DP><DQ>iXUQEj6XfESPiTXv8dOkAakIUpzoB15cXNU5qKOby9xSg9UHqLNqOfcwpj7FgooYm/cIYutJU2iQUssL2JspVQ==</DQ><InverseQ>iqKJhcUaI7xpqzi5w2H61jSxrBOpsjLGeci2IB7Gjt8gmi9NtZyS05FMzVNv9PRDDuGzv0hpezhyq43VG0QLzA==</InverseQ></RSAKeyValue>";
+}

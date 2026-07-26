@@ -1,0 +1,8 @@
+{
+  "name": "windivert",
+  "version": "2.2.2",
+  "description": "WinDivert is a user-mode packet capture-and-divert package for Windows",
+  "homepage": "https://reqrypt.org/windivert.html",
+  "license": "LGPL-3.0-only",
+  "supports": "windows & !uwp & !arm"
+}

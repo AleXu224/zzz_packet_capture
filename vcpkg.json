@@ -1,0 +1,25 @@
+{
+  "name": "glt",
+  "version-string": "0.1",
+  "dependencies": [
+    "glfw3",
+    "freetype",
+    "asio",
+    "openssl",
+    "skyr-url",
+    "tl-expected",
+    "range-v3",
+    "catch2",
+    "utfcpp",
+    "glm",
+    "pcapplusplus",
+    "glaze",
+    "protobuf",
+    {
+      "name": "sail",
+      "features": [
+        "webp"
+      ]
+    }
+  ]
+}
