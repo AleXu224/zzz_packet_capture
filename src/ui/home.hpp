@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../pcap/pcap.hpp"
-#include "../serialization/proto.hpp"
 #include "core/core.hpp"
 #include "data/exportSettings.hpp"
 
@@ -16,12 +15,15 @@ namespace ui {
 		struct State : WidgetState<Home> {
 			bool isLoading = true;
 			bool isCapturing = false;
+			bool manifestUpdateAvailable = false;
 			data::ExportSettings exportSettings;
-			serialization::Proto proto;
 			Pcap pcap;
 			VoidObserver onEventUpdate{};
 
 			void initState() override;
+
+			void updateData();
+			void initializeData();
 
 			std::optional<std::string> getSelectedRegion();
 

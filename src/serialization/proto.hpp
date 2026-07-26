@@ -1,15 +1,18 @@
 #pragma once
 
 #include "cstdint"
-#include "fstream"
 #include "glaze/glaze.hpp"// IWYU pragma: keep
 #include "optional"
 #include "string"
 #include "unordered_map"
+#include "util/serializable.hpp"
 #include "vector"
 
 
 namespace serialization {
+	constexpr std::string_view protoPath = "assets/nap.json";
+	constexpr std::string_view protoUrl = "https://github.com/AleXu224/zzz_packet_capture/raw/refs/heads/master/assets/nap.json";
+
 	struct ProtoEntryField {
 		int32_t number = 0;
 		std::string name;
@@ -48,6 +51,20 @@ namespace serialization {
 			return nullptr;
 		}
 
+		void sortEntries() {
+			std::sort(entries.begin(), entries.end(), [](const ProtoEntry &a, const ProtoEntry &b) {
+				return a.cmd_id.value_or(0) < b.cmd_id.value_or(0);
+			});
+		}
+
+		void sortFields() {
+			for (auto &entry: entries) {
+				std::sort(entry.fields.begin(), entry.fields.end(), [](const ProtoEntryField &a, const ProtoEntryField &b) {
+					return a.number < b.number;
+				});
+			}
+		}
+
 		void populateEntriesByName() {
 			entriesByName.clear();
 			for (auto &entry: entries) {
@@ -56,27 +73,20 @@ namespace serialization {
 		}
 
 		static inline Proto fromFile() {
-			std::ifstream file("assets/nap.json");
-			if (!file.is_open()) {
-				throw std::runtime_error("Failed to open nap.json");
-			}
 			Proto proto;
-			std::string buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-			auto ec = glz::read_json(proto.entries, buffer);
-			if (ec) {
-				throw std::runtime_error("Failed to deserialize nap.json: " + std::string(ec.custom_error_message));
+			auto cached = util::serializable::fromFile<std::vector<ProtoEntry>>(protoPath);
+			if (!cached) {
+				auto latestProto = util::serializable::fromNetwork<std::vector<ProtoEntry>>(protoUrl);
+				if (!latestProto) {
+					throw std::runtime_error("Failed to load latest nap.json");
+				}
+				util::serializable::toFile(*latestProto, protoPath);
+				cached = std::move(latestProto.value());
 			}
+			proto.entries = std::move(*cached);
 
-			std::sort(proto.entries.begin(), proto.entries.end(), [](const ProtoEntry &a, const ProtoEntry &b) {
-				return a.cmd_id.value_or(0) < b.cmd_id.value_or(0);
-			});
-
-			for (auto &entry: proto.entries) {
-				std::sort(entry.fields.begin(), entry.fields.end(), [](const ProtoEntryField &a, const ProtoEntryField &b) {
-					return a.number < b.number;
-				});
-			}
-
+			proto.sortEntries();
+			proto.sortFields();
 			proto.populateEntriesByName();
 
 			return proto;

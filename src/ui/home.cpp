@@ -1,10 +1,12 @@
 #include "home.hpp"
 #include "core/clipboard.hpp"
 #include "serialization/datamine.hpp"
+#include "serialization/manifest.hpp"
 #include "serialization/zod/IZOD.hpp"
 #include "theme.hpp"
 #include "ui/exportSettings.hpp"
 #include "widgets/button.hpp"
+#include "widgets/column.hpp"
 #include "widgets/dropdownButton.hpp"
 #include "widgets/expander.hpp"
 #include "widgets/fontIcon.hpp"
@@ -17,14 +19,91 @@
 namespace ui {
 	void Home::State::initState() {
 		auto task = std::thread([this]() {
-			serialization::NanokaData::get();
-			serialization::Datamine::get();
-			proto = serialization::Proto::fromFile();
+			std::filesystem::path assetsPath = "assets";
+			if (!std::filesystem::exists(assetsPath)) {
+				std::filesystem::create_directory(assetsPath);
+			}
+
+			auto localManifest = serialization::Manifest::get();
+			auto latestManifest = util::serializable::fromNetwork<serialization::Manifest>(serialization::manifestUrl);
+			auto localVersion = util::Version::parse(localManifest.version);
+			auto latestVersion = latestManifest ? util::Version::parse(latestManifest->version) : localVersion;
+			if (localVersion < latestVersion) {
+				manifestUpdateAvailable = true;
+			} else {
+				serialization::NanokaData::get();
+				serialization::Datamine::get();
+				serialization::Proto::get();
+			}
+
 			// crypto::xorpad::initialSeed = std::stoull(serialization::Datamine::get().xorSeeds.at("Europe"), nullptr, 16);
 			// pcap.loadCapturePacketsFromFile();
 			onEventUpdate = pcap.onEventUpdate.observe([this]() {
 				setState();
 			});
+			setState([&]() {
+				isLoading = false;
+			});
+		});
+		task.detach();
+	}
+
+	void Home::State::updateData() {
+		setState([&]() {
+			isLoading = true;
+		});
+		auto task = std::thread([this]() {
+			auto latestManifest = util::serializable::fromNetwork<serialization::Manifest>(serialization::manifestUrl);
+			if (!latestManifest) {
+				std::println("Failed to fetch latest manifest.json");
+				setState([&]() {
+					isLoading = false;
+				});
+				return;
+			}
+
+			auto latestDatamine = util::serializable::fromNetwork<serialization::Datamine>(serialization::datamineUrl);
+			if (!latestDatamine) {
+				std::println("Failed to fetch latest datamine.json");
+				setState([&]() {
+					isLoading = false;
+				});
+				return;
+			}
+
+			auto latestProto = util::serializable::fromNetwork<std::vector<serialization::ProtoEntry>>(serialization::protoUrl);
+			if (!latestProto) {
+				std::println("Failed to fetch latest nap.json");
+				setState([&]() {
+					isLoading = false;
+				});
+				return;
+			}
+
+			util::serializable::toFile(*latestManifest, serialization::manifestPath);
+			util::serializable::toFile(*latestDatamine, serialization::dataminePath);
+			util::serializable::toFile(*latestProto, serialization::protoPath);
+
+			serialization::NanokaData::get();
+			serialization::Datamine::get();
+			serialization::Proto::get();
+
+			setState([&]() {
+				isLoading = false;
+				manifestUpdateAvailable = false;
+			});
+		});
+		task.detach();
+	}
+
+	void Home::State::initializeData() {
+		setState([&]() {
+			isLoading = true;
+		});
+		auto task = std::thread([this]() {
+			serialization::NanokaData::get();
+			serialization::Datamine::get();
+			serialization::Proto::get();
 			setState([&]() {
 				isLoading = false;
 			});
@@ -56,6 +135,49 @@ namespace ui {
 					.alignment = squi::core::Alignment::Center,
 				},
 				.text = "Loading...",
+			};
+		}
+
+		if (manifestUpdateAvailable) {
+			return Column{
+				.widget{
+					.width = Size::Shrink,
+					.height = Size::Shrink,
+					.alignment = squi::core::Alignment::Center,
+				},
+				.crossAxisAlignment = Flex::Alignment::center,
+				.spacing = 8.f,
+				.children{
+					Text{
+						.widget{
+							.alignment = squi::core::Alignment::Center,
+						},
+						.text = "New data files are available. Would you like to update?",
+					},
+					Row{
+						.widget{
+							.width = Size::Shrink,
+						},
+						.spacing = 8.f,
+						.children{
+							Button{
+								.onClick = [this]() {
+									updateData();
+								},
+								.child = "Yes",
+							},
+							Button{
+								.onClick = [this]() {
+									setState([&]() {
+										manifestUpdateAvailable = false;
+									});
+									initializeData();
+								},
+								.child = "No",
+							},
+						},
+					},
+				}
 			};
 		}
 

@@ -1,12 +1,15 @@
 #pragma once
 
 #include "cstdint"
-#include "fstream"
 #include "glaze/glaze.hpp"// IWYU pragma: keep
 #include "string"
+#include "util/serializable.hpp"
 
 
 namespace serialization {
+	constexpr std::string_view dataminePath = "assets/datamine.json";
+	constexpr std::string_view datamineUrl = "https://github.com/AleXu224/zzz_packet_capture/raw/refs/heads/master/assets/datamine.json";
+
 	struct Datamine {
 		struct AvatarSkillLevel {
 			uint32_t skill_type;
@@ -52,7 +55,6 @@ namespace serialization {
 			uint32_t modification;
 		};
 
-		std::string version;
 		std::map<std::string, std::string> xorSeeds;
 		uint32_t cmdPlayerGetTokenScRsp;
 		uint32_t cmdGetEquipDataScRsp;
@@ -68,25 +70,14 @@ namespace serialization {
 
 		WeaponInfo weaponInfo;
 
-		static std::optional<Datamine> fromFile() {
-			std::ifstream file("assets/datamine.json");
-			if (!file.is_open()) {
-				return std::nullopt;
-			}
-			std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-			Datamine datamine;
-			auto ec = glz::read<glz::opts{.error_on_unknown_keys = false}>(datamine, data);
-			if (ec) {
-				std::println("Failed to parse datamine.json: {}", glz::format_error(ec, data));
-				return std::nullopt;
-			}
-			return datamine;
-		}
-
-		static const Datamine &get() {
-			static const auto datamine = fromFile();
+		static inline const Datamine &get() {
+			static auto datamine = util::serializable::fromFile<Datamine>(dataminePath);
 			if (!datamine) {
-				throw std::runtime_error("Failed to load datamine.json");
+				datamine = util::serializable::fromNetwork<Datamine>(datamineUrl);
+				if (!datamine) {
+					throw std::runtime_error("Failed to load latest datamine.json");
+				}
+				util::serializable::toFile(*datamine, dataminePath);
 			}
 			return *datamine;
 		}

@@ -6,7 +6,7 @@
 #include "./nanoka/manifest.hpp"
 #include "./nanoka/weapons.hpp"
 #include "filesystem"
-#include "fstream"
+#include "util/serializable.hpp"
 
 
 namespace serialization {
@@ -33,19 +33,10 @@ namespace serialization {
 			return std::filesystem::exists(path);
 		}
 
-		[[nodiscard]] static inline std::optional<NanokaData> fromFile() {
-			std::ifstream file(nanokaDataPath.data());
-			if (!file.is_open()) {
-				return std::nullopt;
-			}
-			std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-			return fromBytes(data);
-		}
-
 		[[nodiscard]] static inline std::expected<NanokaData, std::string> fetchLatest() {
 			NanokaData ret;
 
-			auto latestManifest = Manifest::get();
+			auto latestManifest = NanokaManifest::get();
 			auto &version = latestManifest.zzz.live;
 			ret.version = version;
 
@@ -80,7 +71,7 @@ namespace serialization {
 		}
 
 		[[nodiscard]] inline bool shouldUpdate() const {
-			auto latestManifest = Manifest::get();
+			auto latestManifest = NanokaManifest::get();
 			if (latestManifest.zzz.live.empty()) {
 				std::println("Failed to fetch latest manifest for NanokaData update check.");
 				return false;
@@ -94,7 +85,7 @@ namespace serialization {
 
 		static inline const NanokaData &get() {
 			static NanokaData nanokaData = [&]() {
-				auto cached = fromFile();
+				auto cached = util::serializable::fromFile<NanokaData>(nanokaDataPath);
 				if (!cached || cached->shouldUpdate()) {
 					auto latest = fetchLatest();
 					if (!latest.has_value()) {
@@ -104,18 +95,7 @@ namespace serialization {
 						}
 						return *cached;
 					}
-					std::ofstream file(nanokaDataPath.data());
-					if (file.is_open()) {
-						std::string buffer;
-						auto ec = glz::write_json(latest.value(), buffer);
-						if (!ec) {
-							file << buffer;
-						} else {
-							std::println("Failed to write NanokaData to file: {}", static_cast<int>(ec));
-						}
-					} else {
-						std::println("Failed to open NanokaData file for writing.");
-					}
+					util::serializable::toFile(*latest, nanokaDataPath);
 					cached = latest.value();
 				}
 				return *cached;
