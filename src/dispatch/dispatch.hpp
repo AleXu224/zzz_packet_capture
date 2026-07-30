@@ -13,9 +13,9 @@
 #include <vector>
 
 namespace dispatch {
-	constexpr std::string_view version = "OSPRODWin3.0.0";
-	constexpr std::string_view seed = "76400c67cad01e75";
-	constexpr std::string_view token = "ffdbcb63cc855516";
+	constexpr std::string_view version = "OSPRODWin3.1.0";
+	constexpr std::string_view seed = "7b11a7d9aca1b9c1";
+	constexpr std::string_view token = "8c142d5ec794b386";
 	const std::string params = std::format("?version={}&rsa_ver=3&language=1&platform=3&seed={}&token={}&channel_id=1&sub_channel_id=1", version, seed, token);
 	constexpr std::string_view queryDispatchUrl = "https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch";
 

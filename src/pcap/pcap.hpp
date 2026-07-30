@@ -7,9 +7,9 @@
 #include "../data/engine.hpp"
 #include "../kcp/kcp.hpp"
 #include "../kcp/messageHeader.hpp"
+#include "../serialization/datamine.hpp"
 #include "../serialization/packets.hpp"
 #include "../serialization/proto.hpp"
-#include "../serialization/datamine.hpp"
 #include "glaze/glaze.hpp"// IWYU pragma: keep
 #include "google/protobuf/unknown_field_set.h"
 #include "observer.hpp"
@@ -23,6 +23,8 @@
 #include <ranges>
 #include <thread>
 
+
+// #include "util/proto.hpp"
 
 struct Pcap {
 	serialization::PacketList capturedPackets;
@@ -115,7 +117,7 @@ struct Pcap {
 			// util::printUFS(*fields);
 			for (int i = 0; i < fields->field_count(); ++i) {
 				const auto &f = fields->field(i);
-				if (f.number() != 1) continue;
+				if (f.number() != datamine.equipData.discs) continue;
 				google::protobuf::UnknownFieldSet nested;
 				if (nested.ParseFromString(f.length_delimited())) {
 					discs.push_back(data::DiscInfo::fromUFS(nested));
@@ -129,7 +131,7 @@ struct Pcap {
 			// util::printUFS(*fields);
 			for (int i = 0; i < fields->field_count(); ++i) {
 				const auto &f = fields->field(i);
-				if (f.number() != 13) continue;
+				if (f.number() != datamine.weaponData.weapons) continue;
 				google::protobuf::UnknownFieldSet nested;
 				if (nested.ParseFromString(f.length_delimited()))
 					engines.push_back(data::WeaponInfo::fromUFS(nested));
@@ -142,7 +144,7 @@ struct Pcap {
 			// util::printUFS(*fields);
 			for (int i = 0; i < fields->field_count(); ++i) {
 				const auto &f = fields->field(i);
-				if (f.number() != 14) continue;
+				if (f.number() != datamine.agentData.agents) continue;
 				google::protobuf::UnknownFieldSet nested;
 				if (nested.ParseFromString(f.length_delimited()))
 					agents.push_back(data::AgentInfo::fromUFS(nested));

@@ -32,6 +32,18 @@ namespace serialization {
 			uint32_t dressed_equips;
 		};
 
+		struct AgentData {
+			uint32_t agents;
+		};
+
+		struct EquipData {
+			uint32_t discs;
+		};
+
+		struct WeaponData {
+			uint32_t weapons;
+		};
+
 		struct DiscStat {
 			uint32_t key;
 			uint32_t base_value;
@@ -61,13 +73,16 @@ namespace serialization {
 		uint32_t cmdGetWeaponDataScRsp;
 		uint32_t cmdGetAvatarDataScRsp;
 
+		AgentData agentData;
 		AgentInfo agentInfo;
 		AvatarSkillLevel agentSkill;
 		DressedEquip agentEquip;
 
+		EquipData equipData;
 		DiscInfo discInfo;
 		DiscStat discStat;
 
+		WeaponData weaponData;
 		WeaponInfo weaponInfo;
 
 		static inline const Datamine &get() {

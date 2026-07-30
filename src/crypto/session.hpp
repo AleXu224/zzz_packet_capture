@@ -36,6 +36,7 @@ namespace crypto {
 			for (size_t i = 0; i < ufs.field_count(); ++i) {
 				const auto &field = ufs.field(i);
 
+				if (field.type() != google::protobuf::UnknownField::TYPE_LENGTH_DELIMITED) continue;
 				auto fieldBytes = field.length_delimited();
 				auto fieldDecoded = util::strings::decodeB64(std::string{reinterpret_cast<const char *>(fieldBytes.data()), fieldBytes.size()});
 				if (fieldDecoded.size() != crypto::rsa::KeySize) continue;
