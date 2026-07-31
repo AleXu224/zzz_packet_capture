@@ -240,7 +240,7 @@ namespace ui {
 								.exportSettings = exportSettings,
 							},
 							Expander{
-								.title = "Capture results",
+								.title = "Export results",
 								.action = Button{
 									.onClick = [this]() {
 										auto zod = Serialization::Zod::IZOD::fromPcap(pcap, exportSettings);
