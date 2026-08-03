@@ -37,7 +37,7 @@ namespace ui {
 								Text{.text = "Min level"},
 								Slider{
 									.widget{
-										.sizeConstraints = BoxConstraints{
+										.sizeConstraints{
 											.maxWidth = 200.f,
 										},
 									},
@@ -94,7 +94,7 @@ namespace ui {
 								Text{.text = "Min level"},
 								Slider{
 									.widget{
-										.sizeConstraints = BoxConstraints{
+										.sizeConstraints{
 											.maxWidth = 200.f,
 										},
 									},
@@ -151,7 +151,7 @@ namespace ui {
 								Text{.text = "Min level"},
 								Slider{
 									.widget{
-										.sizeConstraints = BoxConstraints{
+										.sizeConstraints{
 											.maxWidth = 200.f,
 										},
 									},
