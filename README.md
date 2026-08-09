@@ -8,6 +8,7 @@ It can be used to quickly import all your data into [Zenless Optimizer](https://
 - Download the latest version from the [releases page](https://github.com/AleXu224/zzz_packet_capture/releases)
 - Extract the archive to a folder of your choice and start `zzz_packet_capture.exe`
   - The program needs to start with administrator privileges in order to capture packets from the game, you will automatically be prompted to do so
+  - On linux you will need to manually start the program with sudo or run `sudo setcap cap_net_raw,cap_net_admin=eip zzz_packet_capture` to allow it to capture packets without root privileges
 - Choose your region and click "Start Capture"
 - Close Zenless Zone Zero if you haven't done so already
 - Start the game and log in, the program will automatically capture your data (should be done by the time you see your character in game)
@@ -27,8 +28,10 @@ If you are eager to help but have no experience then please don't hesitate to re
   - [Ninja](https://github.com/ninja-build/ninja)
     - Optional, but recommended for faster builds
   - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)
-  - Visual Studio or Visual Studio Build Tools
+  - Windows: Visual Studio or Visual Studio Build Tools
     - Make sure to install the "Desktop development with C++" workload
+  - Linux: only tested with libstdc++ 
+    - other dependencies depend on too many factors to list, CMake will tell you what is missing and needs installing
 - Building:
   - Clone the repository and initialize the submodules:
   ```bash

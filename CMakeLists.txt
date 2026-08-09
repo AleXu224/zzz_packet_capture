@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/glt/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg-overlay-ports")
-set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
+if(WIN32)
+    set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
+endif()
 project(zzz_packet_capture VERSION 0.1.0 LANGUAGES C CXX)
 
 add_custom_target(Assets)
@@ -22,29 +24,33 @@ target_compile_features(zzz_packet_capture PUBLIC cxx_std_23)
 target_include_directories(zzz_packet_capture PRIVATE src)
 target_compile_definitions(zzz_packet_capture PRIVATE NOMINMAX)
 
-# Require admin privileges so that WinDivert driver can be loaded
-target_link_options(zzz_packet_capture PRIVATE
-    "LINKER:/manifest:embed"
-)
+if(WIN32)
+    # Require admin privileges so that WinDivert driver can be loaded
+    target_link_options(zzz_packet_capture PRIVATE
+        "LINKER:/manifest:embed"
+    )
 
-target_link_options(zzz_packet_capture PRIVATE
-	"$<$<NOT:$<CONFIG:Debug>>:LINKER:/manifestuac:level='requireAdministrator' uiAccess='false'>"
-    "$<$<NOT:$<CONFIG:Debug>>:LINKER:/SUBSYSTEM:WINDOWS>"
-    "$<$<NOT:$<CONFIG:Debug>>:LINKER:/ENTRY:mainCRTStartup>"
-)
+    target_link_options(zzz_packet_capture PRIVATE
+        "$<$<NOT:$<CONFIG:Debug>>:LINKER:/manifestuac:level='requireAdministrator' uiAccess='false'>"
+        "$<$<NOT:$<CONFIG:Debug>>:LINKER:/SUBSYSTEM:WINDOWS>"
+        "$<$<NOT:$<CONFIG:Debug>>:LINKER:/ENTRY:mainCRTStartup>"
+    )
+endif()
 add_dependencies(zzz_packet_capture Assets)
 
 add_subdirectory(glt)
 
 target_link_libraries(zzz_packet_capture PRIVATE glt)
 
-find_package(WinDivert CONFIG REQUIRED)
+if(WIN32)
+    find_package(WinDivert CONFIG REQUIRED)
 
-add_custom_command(TARGET zzz_packet_capture POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/WinDivert64.sys"
-        "$<TARGET_FILE_DIR:zzz_packet_capture>/WinDivert64.sys"
-)
+    add_custom_command(TARGET zzz_packet_capture POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/WinDivert64.sys"
+            "$<TARGET_FILE_DIR:zzz_packet_capture>/WinDivert64.sys"
+    )
+endif()
 
 find_package(PcapPlusPlus CONFIG REQUIRED)
 target_link_libraries(zzz_packet_capture PRIVATE PcapPlusPlus::Pcap++ PcapPlusPlus::Common++)

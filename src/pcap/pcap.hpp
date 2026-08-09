@@ -19,7 +19,13 @@
 #include <optional>
 #include <pcapplusplus/Packet.h>
 #include <pcapplusplus/UdpLayer.h>
+#ifdef _WIN32
 #include <pcapplusplus/WinDivertDevice.h>
+#else
+#include <pcapplusplus/PcapFilter.h>
+#include <pcapplusplus/PcapLiveDevice.h>
+#include <pcapplusplus/PcapLiveDeviceList.h>
+#endif
 #include <ranges>
 #include <thread>
 
@@ -36,7 +42,11 @@ struct Pcap {
 	KCP::KCP kcp{};
 	squi::VoidObservable onEventUpdate{};
 
+#ifdef _WIN32
 	std::unique_ptr<pcpp::WinDivertDevice> device;
+#else
+	pcpp::PcapLiveDevice *device = nullptr;
+#endif
 	std::jthread captureThread;
 
 	inline void storeCapturePacketsToFile() {
@@ -161,9 +171,30 @@ struct Pcap {
 		}
 	}
 
+	inline void processRawPacket(pcpp::RawPacket *rawPacket) {
+		pcpp::Packet parsedPacket(rawPacket);
+		auto *udpLayer = parsedPacket.getLayerOfType<pcpp::UdpLayer>();
+		if (!udpLayer) return;
+		if (udpLayer->getSrcPort() != 20501 && udpLayer->getDstPort() != 20501) return;
+
+		auto data = std::span(udpLayer->getLayerPayload(), udpLayer->getLayerPayloadSize());
+		if (data.empty()) return;
+
+		bool outgoing = udpLayer->getDstPort() == 20501;
+		auto direction = outgoing ? serialization::Direction::outgoing : serialization::Direction::incoming;
+		processPacket(data, rawPacket->getPacketTimeStamp().tv_sec, direction);
+
+		capturedPackets.packets.emplace_back(serialization::Packet{
+			.direction = direction,
+			.timestamp = rawPacket->getPacketTimeStamp().tv_sec,
+			.data = std::vector<uint8_t>(data.begin(), data.end()),
+		});
+	}
+
 	inline void listen() {
 		if (captureThread.joinable()) return;
 
+#ifdef _WIN32
 		device = std::make_unique<pcpp::WinDivertDevice>();
 		if (!device->open("true")) {
 			std::println("Failed to open WinDivert device");
@@ -177,23 +208,7 @@ struct Pcap {
 			auto result = device->receivePackets(
 				[this](const pcpp::WinDivertDevice::WinDivertRawPacketVector &packetVec, const pcpp::WinDivertDevice::WinDivertReceiveCallbackContext &) {
 					for (auto *rawPacket: packetVec) {
-						pcpp::Packet parsedPacket(rawPacket);
-						auto *udpLayer = parsedPacket.getLayerOfType<pcpp::UdpLayer>();
-						if (!udpLayer) continue;
-						if (udpLayer->getSrcPort() != 20501 && udpLayer->getDstPort() != 20501) continue;
-
-						auto data = std::span(udpLayer->getLayerPayload(), udpLayer->getLayerPayloadSize());
-						if (data.empty()) continue;
-
-						bool outgoing = udpLayer->getDstPort() == 20501;
-						auto direction = outgoing ? serialization::Direction::outgoing : serialization::Direction::incoming;
-						processPacket(data, rawPacket->getPacketTimeStamp().tv_sec, direction);
-
-						capturedPackets.packets.emplace_back(serialization::Packet{
-							.direction = direction,
-							.timestamp = rawPacket->getPacketTimeStamp().tv_sec,
-							.data = std::vector<uint8_t>(data.begin(), data.end()),
-						});
+						processRawPacket(rawPacket);
 					}
 				},
 				0,
@@ -203,16 +218,60 @@ struct Pcap {
 				std::println("WinDivert capture stopped: {} (code {})", result.error, result.errorCode);
 			}
 		});
+#else
+		device = pcpp::PcapLiveDeviceList::getInstance().getDeviceByName("any");
+		if (!device) {
+			std::println("Failed to find a capture device (are you running as root or with CAP_NET_RAW?)");
+			return;
+		}
+		pcpp::PcapLiveDevice::DeviceConfiguration config{
+			pcpp::PcapLiveDevice::DeviceMode::Normal,
+		};
+		if (!device->open(config)) {
+			std::println("Failed to open capture device (are you running as root or with CAP_NET_RAW?)");
+			device = nullptr;
+			return;
+		}
+		pcpp::PortFilter portFilter(20501, pcpp::SRC_OR_DST);
+		pcpp::ProtoFilter protoFilter(pcpp::UDP);
+		pcpp::AndFilter filter;
+		filter.addFilter(&portFilter);
+		filter.addFilter(&protoFilter);
+		if (!device->setFilter(filter)) {
+			std::println("Failed to set capture filter, capturing all traffic");
+		}
+
+		std::println("Capture started");
+
+		captureThread = std::jthread([this]() {
+			device->startCapture(
+				[this](pcpp::RawPacket *rawPacket, pcpp::PcapLiveDevice *, void *) {
+					processRawPacket(rawPacket);
+				},
+				nullptr
+			);
+		});
+#endif
 	}
 
 	inline void stop() {
+#ifdef _WIN32
 		if (!device || !device->isOpened()) return;
 		device->stopReceive();
+#else
+		if (!device || !device->isOpened()) return;
+		device->stopCapture();
+#endif
 		if (captureThread.joinable()) {
 			captureThread.join();
 		}
+#ifdef _WIN32
 		device->close();
 		device.reset();
+#else
+		device->close();
+		device = nullptr;
+#endif
 		std::println("Capture stopped");
 	}
 };
