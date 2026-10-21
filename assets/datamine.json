@@ -5,53 +5,53 @@
         "Asia": "1A7E69FE2F49590A",
         "TW,HK,MO": "883B27204BF725D3"
     },
-    "cmdPlayerGetTokenScRsp": 4937,
-    "cmdGetEquipDataScRsp": 3933,
-    "cmdGetWeaponDataScRsp": 1382,
-    "cmdGetAvatarDataScRsp": 2470,
+    "cmdPlayerGetTokenScRsp": 2452,
+    "cmdGetEquipDataScRsp": 1744,
+    "cmdGetWeaponDataScRsp": 8256,
+    "cmdGetAvatarDataScRsp": 7398,
     "agentData": {
-        "agents": 2
+        "agents": 12
     },
     "agentInfo": {
-        "id": 2,
+        "id": 7,
         "level": 3,
-        "promotion": 14,
-        "weaponUid": 12,
-        "mindscape": 7,
-        "skills": 4,
-        "dressed_equips": 5
+        "promotion": 6,
+        "weaponUid": 8,
+        "mindscape": 15,
+        "skills": 10,
+        "dressed_equips": 13
     },
     "agentSkill": {
-        "skill_type": 1,
-        "level": 9
+        "skill_type": 7,
+        "level": 5
     },
     "agentEquip": {
-        "uid": 15,
-        "slot": 10
+        "uid": 3,
+        "slot": 7
     },
     "equipData": {
-        "discs": 5
+        "discs": 12
     },
     "discInfo": {
-        "uid": 14,
-        "id": 6,
-        "level": 1,
-        "mainStat": 9,
-        "subStats": 4
+        "uid": 9,
+        "id": 1,
+        "level": 14,
+        "mainStat": 4,
+        "subStats": 8
     },
     "discStat": {
-        "key": 3,
-        "base_value": 13,
-        "add_value": 7
+        "key": 15,
+        "base_value": 11,
+        "add_value": 6
     },
     "weaponData": {
-        "weapons": 11
+        "weapons": 1
     },
     "weaponInfo": {
         "id": 13,
-        "uid": 6,
-        "level": 1,
-        "phase": 12,
-        "modification": 2
+        "uid": 12,
+        "level": 8,
+        "phase": 11,
+        "modification": 7
     }
 }
