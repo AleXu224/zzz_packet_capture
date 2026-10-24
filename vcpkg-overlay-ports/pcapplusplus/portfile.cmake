@@ -11,12 +11,11 @@ vcpkg_from_github(
 )
 
 if(VCPKG_TARGET_IS_WINDOWS)
-    set(WINDIVERT_OPTIONS
-        -DPCAPPP_USE_WINDIVERT=ON
+    set(PCAP_OPTIONS
         -DPCAPPP_USE_PCAP=OFF
     )
 else()
-    set(WINDIVERT_OPTIONS "")
+    set(PCAP_OPTIONS "")
 endif()
 
 vcpkg_cmake_configure(
@@ -24,7 +23,7 @@ vcpkg_cmake_configure(
     OPTIONS
         -DPCAPPP_BUILD_EXAMPLES=OFF
         -DPCAPPP_BUILD_TESTS=OFF
-        ${WINDIVERT_OPTIONS}
+        ${PCAP_OPTIONS}
 )
 
 vcpkg_cmake_install()

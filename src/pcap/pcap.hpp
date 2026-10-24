@@ -20,7 +20,7 @@
 #include <pcapplusplus/Packet.h>
 #include <pcapplusplus/UdpLayer.h>
 #ifdef _WIN32
-#include <pcapplusplus/WinDivertDevice.h>
+#include "pktmonDevice.hpp"
 #else
 #include <pcapplusplus/PcapFilter.h>
 #include <pcapplusplus/PcapLiveDevice.h>
@@ -43,7 +43,7 @@ struct Pcap {
 	squi::VoidObservable onEventUpdate{};
 
 #ifdef _WIN32
-	std::unique_ptr<pcpp::WinDivertDevice> device;
+	std::unique_ptr<pcap::PktMonDevice> device;
 #else
 	pcpp::PcapLiveDevice *device = nullptr;
 #endif
@@ -110,6 +110,9 @@ struct Pcap {
 
 		if (session.serverRandKey && !session.sessionPadReady && messageHeader.bodyLength >= 32) {
 			session.deriveSessionKey(body, unixSeconds);
+			if (session.sessionPadReady) {
+				decrypted = session.decryptBody(body);
+			}
 			onEventUpdate.notify();
 		}
 
@@ -195,18 +198,22 @@ struct Pcap {
 		if (captureThread.joinable()) return;
 
 #ifdef _WIN32
-		device = std::make_unique<pcpp::WinDivertDevice>();
-		if (!device->open("true")) {
-			debug::log("Failed to open WinDivert device");
+		device = std::make_unique<pcap::PktMonDevice>();
+		if (!device->open()) {
+			debug::log("Failed to open PktMon device (are you running as administrator?)");
 			device.reset();
 			return;
+		}
+
+		if (!device->addUdpPortFilter(20501)) {
+			debug::log("Failed to set PktMon capture filter, capturing all traffic");
 		}
 
 		debug::log("Capture started");
 
 		captureThread = std::jthread([this]() {
 			auto result = device->receivePackets(
-				[this](const pcpp::WinDivertDevice::WinDivertRawPacketVector &packetVec, const pcpp::WinDivertDevice::WinDivertReceiveCallbackContext &) {
+				[this](const pcap::PktMonDevice::RawPacketVector &packetVec) {
 					for (auto *rawPacket: packetVec) {
 						processRawPacket(rawPacket);
 					}
@@ -214,8 +221,8 @@ struct Pcap {
 				0,
 				64
 			);
-			if (result.status != pcpp::WinDivertDevice::ReceiveResult::Status::Completed) {
-				debug::log("WinDivert capture stopped: {} (code {})", result.error, result.errorCode);
+			if (result.status != pcap::PktMonDevice::ReceiveResult::Status::completed) {
+				debug::log("Capture stopped: {} (code {})", result.error, result.errorCode);
 			}
 		});
 #else

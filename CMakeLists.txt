@@ -25,7 +25,7 @@ target_include_directories(zzz_packet_capture PRIVATE src)
 target_compile_definitions(zzz_packet_capture PRIVATE NOMINMAX)
 
 if(WIN32)
-    # Require admin privileges so that WinDivert driver can be loaded
+    # Require admin privileges for packet capture
     target_link_options(zzz_packet_capture PRIVATE
         "LINKER:/manifest:embed"
     )
@@ -35,22 +35,14 @@ if(WIN32)
         "$<$<NOT:$<CONFIG:Debug>>:LINKER:/SUBSYSTEM:WINDOWS>"
         "$<$<NOT:$<CONFIG:Debug>>:LINKER:/ENTRY:mainCRTStartup>"
     )
+
+    target_link_libraries(zzz_packet_capture PRIVATE advapi32 tdh)
 endif()
 add_dependencies(zzz_packet_capture Assets)
 
 add_subdirectory(glt)
 
 target_link_libraries(zzz_packet_capture PRIVATE glt)
-
-if(WIN32)
-    find_package(WinDivert CONFIG REQUIRED)
-
-    add_custom_command(TARGET zzz_packet_capture POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/WinDivert64.sys"
-            "$<TARGET_FILE_DIR:zzz_packet_capture>/WinDivert64.sys"
-    )
-endif()
 
 find_package(PcapPlusPlus CONFIG REQUIRED)
 target_link_libraries(zzz_packet_capture PRIVATE PcapPlusPlus::Pcap++ PcapPlusPlus::Common++)
