@@ -3,6 +3,7 @@
 #include "../crypto/crandom.hpp"
 #include "../crypto/rsa.hpp"
 #include "../crypto/xorpad.hpp"
+#include "../util/debug.hpp"
 #include "../util/reversedBytes.hpp"
 #include "../util/strings.hpp"
 #include "google/protobuf/unknown_field_set.h"
@@ -44,7 +45,7 @@ namespace crypto {
 				std::vector<uint8_t> plain;
 				auto res = crypto::rsa::decryptBlock(std::span<const uint8_t>{fieldDecoded});
 				if (!res) {
-					std::println("session: failed to decrypt server_rand_key field: {}", res.error());
+					debug::log("session: failed to decrypt server_rand_key field: {}", res.error());
 					continue;
 				}
 				plain = std::move(*res);
@@ -82,7 +83,7 @@ namespace crypto {
 				auto success = fields.ParseFromArray(dec.data(), static_cast<int>(dec.size()));
 				// If the protobuf parses successfully it is almost certainly the correct key
 				if (success) {
-					std::println("Found at delta={}", delta);
+					debug::log("Found at delta={}", delta);
 					return std::make_pair(crk, sessionKey);
 				}
 			}
@@ -92,14 +93,14 @@ namespace crypto {
 		inline void deriveSessionKey(std::span<const uint8_t> messageBody, int64_t unixSeconds) {
 			auto result = bruteForceClientRandKey(*serverRandKey, messageBody, unixSeconds);
 			if (!result) {
-				std::println("session: brute force failed (no matching seed in window)");
+				debug::log("session: brute force failed (no matching seed in window)");
 				return;
 			}
 			clientRandKey = result->first;
 			sessionKey = result->second;
 			sessionPad = crypto::xorpad::session(*sessionKey);
 			sessionPadReady = true;
-			std::println("session: derived client_rand_key={:016X} session_key={:016X}", *clientRandKey, *sessionKey);
+			debug::log("session: derived client_rand_key={:016X} session_key={:016X}", *clientRandKey, *sessionKey);
 		}
 	};
 }// namespace crypto

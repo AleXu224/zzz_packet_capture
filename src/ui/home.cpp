@@ -5,6 +5,7 @@
 #include "serialization/zod/IZOD.hpp"
 #include "theme.hpp"
 #include "ui/exportSettings.hpp"
+#include "util/debug.hpp"
 #include "widgets/button.hpp"
 #include "widgets/column.hpp"
 #include "widgets/dropdownButton.hpp"
@@ -55,7 +56,7 @@ namespace ui {
 		auto task = std::thread([this]() {
 			auto latestManifest = util::serializable::fromNetwork<serialization::Manifest>(serialization::manifestUrl);
 			if (!latestManifest) {
-				std::println("Failed to fetch latest manifest.json");
+				debug::log("Failed to fetch latest manifest.json");
 				setState([&]() {
 					isLoading = false;
 				});
@@ -64,7 +65,7 @@ namespace ui {
 
 			auto latestDatamine = util::serializable::fromNetwork<serialization::Datamine>(serialization::datamineUrl);
 			if (!latestDatamine) {
-				std::println("Failed to fetch latest datamine.json");
+				debug::log("Failed to fetch latest datamine.json");
 				setState([&]() {
 					isLoading = false;
 				});
@@ -73,7 +74,7 @@ namespace ui {
 
 			auto latestProto = util::serializable::fromNetwork<std::vector<serialization::ProtoEntry>>(serialization::protoUrl);
 			if (!latestProto) {
-				std::println("Failed to fetch latest nap.json");
+				debug::log("Failed to fetch latest nap.json");
 				setState([&]() {
 					isLoading = false;
 				});
@@ -246,7 +247,7 @@ namespace ui {
 										auto zod = Serialization::Zod::IZOD::fromPcap(pcap, exportSettings);
 										auto json = glz::write_json(zod);
 										if (!json) {
-											std::println("Failed to serialize ZOD: {}", static_cast<int>(json.error()));
+											debug::log("Failed to serialize ZOD: {}", static_cast<int>(json.error()));
 											return;
 										}
 										Clipboard::of(this).set(*json);

@@ -6,6 +6,7 @@
 #include "./nanoka/manifest.hpp"
 #include "./nanoka/weapons.hpp"
 #include "filesystem"
+#include "util/debug.hpp"
 #include "util/serializable.hpp"
 
 
@@ -73,7 +74,7 @@ namespace serialization {
 		[[nodiscard]] inline bool shouldUpdate() const {
 			auto latestManifest = NanokaManifest::get();
 			if (latestManifest.zzz.live.empty()) {
-				std::println("Failed to fetch latest manifest for NanokaData update check.");
+				debug::log("Failed to fetch latest manifest for NanokaData update check.");
 				return false;
 			}
 
@@ -89,7 +90,7 @@ namespace serialization {
 				if (!cached || cached->shouldUpdate()) {
 					auto latest = fetchLatest();
 					if (!latest.has_value()) {
-						std::println("{}", latest.error());
+						debug::log("{}", latest.error());
 						if (!cached) {
 							throw std::runtime_error("No cached NanokaData available.");
 						}

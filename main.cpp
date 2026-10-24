@@ -1,6 +1,7 @@
 #include "core/app.hpp"
 #include "src/dispatch/dispatch.hpp"
 #include "ui/home.hpp"
+#include "util/debug.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -22,10 +23,10 @@ int main(int argc, char **argv) {
 		try {
 			auto seeds = dispatch::deriveInitialSeeds();
 			for (const auto &[title, seed]: seeds) {
-				std::println("New seed for {}: {:016X}", title, seed);
+				debug::log("New seed for {}: {:016X}", title, seed);
 			}
 		} catch (const std::exception &e) {
-			std::println(stderr, "dispatch error: {}", e.what());
+			debug::log(stderr, "dispatch error: {}", e.what());
 			return 1;
 		}
 		return 0;
