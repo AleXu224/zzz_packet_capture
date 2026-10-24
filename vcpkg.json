@@ -4,8 +4,8 @@
   "dependencies": [
     "glfw3",
     "freetype",
-    "asio",
-    "openssl",
+    "cpp-httplib",
+    "mbedtls",
     "skyr-url",
     "tl-expected",
     "range-v3",

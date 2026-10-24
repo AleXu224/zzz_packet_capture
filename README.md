@@ -39,7 +39,7 @@ If you are eager to help but have no experience then please don't hesitate to re
   cd zzz_packet_capture
   git submodule update --init --recursive
   ```
-  - Run cmake to generate the build files and install the dependencies (this will take a while, blame openssl for that):
+  - Run cmake to generate the build files and install the dependencies (this will take a while):
   ```bash
   cmake -B build -G "Ninja Multi-Config" -DCMAKE_C_COMPILER="clang" -DCMAKE_CXX_COMPILER="clang++"
   

@@ -1,17 +1,18 @@
 #pragma once
 
 #include "../crypto/key.hpp"
-#include "../util/pointer.hpp"
 #include "../util/strings.hpp"
-#include "openssl/param_build.h"
-#include <array>
 #include <cstdint>
 #include <expected>
-#include <openssl/core_names.h>
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
+#include <mbedtls/bignum.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/error.h>
+#include <mbedtls/rsa.h>
+#include <mutex>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -19,60 +20,102 @@ namespace crypto::rsa {
 	constexpr size_t KeySize = 128;// RSA-1024 = 128 bytes
 	constexpr uint64_t PublicExponent = 65537;
 
-	struct Key {
-		std::unique_ptr<OSSL_PARAM_BLD, decltype(&OSSL_PARAM_BLD_free)> bld{nullptr, &OSSL_PARAM_BLD_free};
-		std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> pkey{nullptr, &EVP_PKEY_free};
+	namespace detail {
+		struct Mpi {
+			mbedtls_mpi value;
 
-		Key() : pkey(nullptr, &EVP_PKEY_free) {
-			constexpr auto nBytes = util::strings::decodeB64Fixed<KeySize>(
-				util::strings::extractXmlTag(clientPrivatekey, "<Modulus>", "</Modulus>")
+			Mpi() { mbedtls_mpi_init(&value); }
+			~Mpi() { mbedtls_mpi_free(&value); }
+			Mpi(const Mpi &) = delete;
+			Mpi &operator=(const Mpi &) = delete;
+		};
+
+		template<size_t N>
+		void readB64(mbedtls_mpi &mpi, std::string_view openTag, std::string_view closeTag) {
+			auto bytes = util::strings::decodeB64(
+				util::strings::extractXmlTag(clientPrivatekey, openTag, closeTag)
 			);
-			constexpr auto dBytes = util::strings::decodeB64Fixed<KeySize>(
-				util::strings::extractXmlTag(clientPrivatekey, "<D>", "</D>")
-			);
-
-			auto n = util::makePtr(BN_bin2bn(nBytes.data(), static_cast<int>(KeySize), nullptr), &BN_free);
-			auto e = util::makePtr(BN_new(), &BN_free);
-			auto d = util::makePtr(BN_bin2bn(dBytes.data(), static_cast<int>(KeySize), nullptr), &BN_free);
-			if (!n || !e || !d || !BN_set_word(e.get(), static_cast<BN_ULONG>(PublicExponent))) {
-				throw std::runtime_error("RSA: BN setup failed");
+			if (bytes.size() != N) throw std::runtime_error("RSA: unexpected decoded value size");
+			if (mbedtls_mpi_read_binary(&mpi, bytes.data(), bytes.size()) != 0) {
+				throw std::runtime_error("RSA: mbedtls_mpi_read_binary failed");
 			}
-
-			bld.reset(OSSL_PARAM_BLD_new());
-			if (!bld || !OSSL_PARAM_BLD_push_BN(bld.get(), OSSL_PKEY_PARAM_RSA_N, n.get()) || !OSSL_PARAM_BLD_push_BN(bld.get(), OSSL_PKEY_PARAM_RSA_E, e.get()) || !OSSL_PARAM_BLD_push_BN(bld.get(), OSSL_PKEY_PARAM_RSA_D, d.get())) {
-				throw std::runtime_error("RSA: OSSL_PARAM_BLD failed");
-			}
-
-			auto params = util::makePtr(OSSL_PARAM_BLD_to_param(bld.get()), &OSSL_PARAM_free);
-			if (!params) throw std::runtime_error("RSA: OSSL_PARAM_BLD_to_param failed");
-
-			auto ctx = util::makePtr(EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr), &EVP_PKEY_CTX_free);
-			EVP_PKEY *pKeyPtr = nullptr;
-			if (!ctx || EVP_PKEY_fromdata_init(ctx.get()) <= 0 || EVP_PKEY_fromdata(ctx.get(), &pKeyPtr, EVP_PKEY_KEYPAIR, params.get()) <= 0) {
-				throw std::runtime_error("RSA: EVP_PKEY_fromdata failed");
-			}
-			pkey.reset(pKeyPtr);
 		}
+	}// namespace detail
+
+	struct Key {
+		mbedtls_rsa_context rsa{};
+		mbedtls_entropy_context entropy{};
+		mbedtls_ctr_drbg_context drbg{};
+		std::mutex mutex;
+
+		Key() {
+			mbedtls_rsa_init(&rsa);
+			mbedtls_entropy_init(&entropy);
+			mbedtls_ctr_drbg_init(&drbg);
+
+			try {
+				static constexpr char personalization[] = "zzz_packet_capture";
+				if (mbedtls_ctr_drbg_seed(
+						&drbg,
+						mbedtls_entropy_func,
+						&entropy,
+						reinterpret_cast<const unsigned char *>(personalization),
+						sizeof(personalization) - 1
+					)
+					!= 0) {
+					throw std::runtime_error("RSA: mbedtls_ctr_drbg_seed failed");
+				}
+
+				detail::Mpi n, d, p, q;
+				detail::readB64<KeySize>(n.value, "<Modulus>", "</Modulus>");
+				detail::readB64<KeySize>(d.value, "<D>", "</D>");
+				detail::readB64<KeySize / 2>(p.value, "<P>", "</P>");
+				detail::readB64<KeySize / 2>(q.value, "<Q>", "</Q>");
+
+				detail::Mpi e;
+				if (mbedtls_mpi_lset(&e.value, static_cast<mbedtls_mpi_sint>(PublicExponent)) != 0) {
+					throw std::runtime_error("RSA: mbedtls_mpi_lset failed");
+				}
+
+				if (mbedtls_rsa_import(&rsa, &n.value, &p.value, &q.value, &d.value, &e.value) != 0) {
+					throw std::runtime_error("RSA: mbedtls_rsa_import failed");
+				}
+				if (mbedtls_rsa_complete(&rsa) != 0) {
+					throw std::runtime_error("RSA: mbedtls_rsa_complete failed");
+				}
+				if (mbedtls_rsa_check_privkey(&rsa) != 0) {
+					throw std::runtime_error("RSA: mbedtls_rsa_check_privkey failed");
+				}
+			} catch (...) {
+				mbedtls_ctr_drbg_free(&drbg);
+				mbedtls_entropy_free(&entropy);
+				mbedtls_rsa_free(&rsa);
+				throw;
+			}
+		}
+
+		~Key() {
+			mbedtls_ctr_drbg_free(&drbg);
+			mbedtls_entropy_free(&entropy);
+			mbedtls_rsa_free(&rsa);
+		}
+		Key(const Key &) = delete;
+		Key &operator=(const Key &) = delete;
 	};
 
 	inline std::expected<std::vector<uint8_t>, std::string> decryptBlock(std::span<const uint8_t> ciphertext) {
 		static Key key;
+		std::lock_guard lock{key.mutex};
 
-		auto ctx = util::makePtr(EVP_PKEY_CTX_new(key.pkey.get(), nullptr), &EVP_PKEY_CTX_free);
-		if (!ctx) return std::unexpected("EVP_PKEY_CTX_new failed");
+		if (ciphertext.size() != KeySize) return std::unexpected("RSA: ciphertext size does not match key size");
 
-		if (EVP_PKEY_decrypt_init(ctx.get()) <= 0) {
-			return std::unexpected("EVP_PKEY_decrypt_init failed");
-		}
-
-		if (EVP_PKEY_CTX_set_rsa_padding(ctx.get(), RSA_PKCS1_PADDING) <= 0) {
-			return std::unexpected("EVP_PKEY_CTX_set_rsa_padding failed");
-		}
-
-		size_t outlen = KeySize;
 		std::vector<uint8_t> out(KeySize);
-		if (EVP_PKEY_decrypt(ctx.get(), out.data(), &outlen, ciphertext.data(), ciphertext.size()) <= 0) {
-			return std::unexpected("RSA decrypt failed");
+		size_t outlen = 0;
+		int ret = mbedtls_rsa_pkcs1_decrypt(&key.rsa, mbedtls_ctr_drbg_random, &key.drbg, &outlen, ciphertext.data(), out.data(), out.size());
+		if (ret != 0) {
+			char err[128]{};
+			mbedtls_strerror(ret, err, sizeof(err));
+			return std::unexpected(std::string{"RSA decrypt failed: "} + err);
 		}
 
 		out.resize(outlen);

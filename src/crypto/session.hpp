@@ -62,7 +62,7 @@ namespace crypto {
 			uint64_t serverRandKey,
 			std::span<const uint8_t> targetBody,
 			int64_t unixSeconds,
-			int64_t windowSeconds = 5
+			int64_t windowSeconds = 10
 		) {
 			for (int64_t delta = -windowSeconds; delta <= windowSeconds; ++delta) {
 				int32_t seed = seedFromUnixSeconds(unixSeconds + delta);

@@ -58,8 +58,8 @@ target_link_libraries(zzz_packet_capture PRIVATE PcapPlusPlus::Pcap++ PcapPlusPl
 find_package(glaze CONFIG REQUIRED)
 target_link_libraries(zzz_packet_capture PRIVATE glaze::glaze)
 
-find_package(OpenSSL REQUIRED)
-target_link_libraries(zzz_packet_capture PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+find_package(MbedTLS CONFIG REQUIRED)
+target_link_libraries(zzz_packet_capture PRIVATE MbedTLS::mbedtls)
 
 find_package(protobuf CONFIG REQUIRED)
 target_link_libraries(zzz_packet_capture PRIVATE protobuf::libupb protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
