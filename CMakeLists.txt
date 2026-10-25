@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/glt/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg-overlay-ports")
+
+if(WIN32 AND VCPKG_TARGET_TRIPLET MATCHES "-static$"
+   AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 if(WIN32)
     set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 endif()
@@ -54,12 +60,13 @@ find_package(MbedTLS CONFIG REQUIRED)
 target_link_libraries(zzz_packet_capture PRIVATE MbedTLS::mbedtls)
 
 find_package(protobuf CONFIG REQUIRED)
-target_link_libraries(zzz_packet_capture PRIVATE protobuf::libupb protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
+target_link_libraries(zzz_packet_capture PRIVATE protobuf::libprotobuf)
 
 get_property(_imported_targets DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY IMPORTED_TARGETS)
 foreach(_t IN LISTS _imported_targets)
 	get_target_property(_libs ${_t} INTERFACE_LINK_LIBRARIES)
 	if(_libs)
+		string(REGEX REPLACE "\\$<LINK_ONLY:-ignore:[0-9]+>" "" _libs "${_libs}")
 		list(FILTER _libs EXCLUDE REGEX "^-ignore:[0-9]+$")
 		set_property(TARGET ${_t} PROPERTY INTERFACE_LINK_LIBRARIES "${_libs}")
 	endif()
