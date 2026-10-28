@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -59,11 +60,6 @@ namespace pcap {
 		DECLARE_HANDLE(PACKETMONITOR_HANDLE);
 		DECLARE_HANDLE(PACKETMONITOR_SESSION);
 		DECLARE_HANDLE(PACKETMONITOR_REALTIME_STREAM);
-
-		enum class PktMonDataSourceKind {
-			all = 0,
-			networkInterface = 1
-		};
 
 		enum class PktMonStreamEventKind {
 			started = 0,
@@ -181,35 +177,6 @@ namespace pcap {
 			uint64_t bytes;
 		};
 
-		struct PktMonDataSourceSpecification {
-			PktMonDataSourceKind kind;
-			std::array<WCHAR, 64> name;
-			std::array<WCHAR, 128> description;
-			uint32_t id;
-			uint32_t secondaryId;
-			uint32_t parentId;
-			union {
-				struct
-				{
-					UINT guid : 1;
-					UINT ipV6Address : 1;
-					UINT ipV4Address : 1;
-					UINT macAddress : 1;
-				} isPresent;
-				UINT isPresentValue;
-			};
-			union {
-				GUID guid;
-				PktMonIpAddress ipAddress;
-				std::array<UCHAR, 6> macAddress;
-			} detail;
-		};
-
-		struct PktMonDataSourceList {
-			uint32_t numDataSources;
-			std::array<const PktMonDataSourceSpecification *, 1> dataSources;
-		};
-
 		struct PktMonLegacyFilter {
 			uint16_t size;
 			std::array<WCHAR, 64> name;
@@ -266,8 +233,6 @@ namespace pcap {
 		using PacketMonitorCloseSessionHandleFn = void(WINAPI *)(PACKETMONITOR_SESSION session);
 		using PacketMonitorCloseRealtimeStreamFn = void(WINAPI *)(PACKETMONITOR_REALTIME_STREAM realtimeStream);
 		using PacketMonitorAddCaptureConstraintFn = HRESULT(WINAPI *)(PACKETMONITOR_SESSION session, const PktMonProtocolConstraint *captureConstraint);
-		using PacketMonitorEnumDataSourcesFn = HRESULT(WINAPI *)(PACKETMONITOR_HANDLE handle, PktMonDataSourceKind sourceKind, BOOLEAN showHidden, SIZE_T bufferCapacity, SIZE_T *bytesNeeded, PktMonDataSourceList *dataSourceList);
-		using PacketMonitorAddSingleDataSourceToSessionFn = HRESULT(WINAPI *)(PACKETMONITOR_SESSION session, const PktMonDataSourceSpecification *dataSource);
 
 		using PktmonAddFilterFn = uint32_t(WINAPI *)(const PktMonLegacyFilter *filter);
 		using PktmonRemoveAllFiltersFn = uint32_t(WINAPI *)();
@@ -310,7 +275,14 @@ namespace pcap {
 					return pcpp::LINKTYPE_IEEE802_11;
 				case 3:
 					if (!data.empty()) {
-						return (data[0] >> 4) == 6 ? pcpp::LINKTYPE_IPV6 : pcpp::LINKTYPE_IPV4;
+						switch (data[0] >> 4) {
+							case 4:
+								return pcpp::LINKTYPE_IPV4;
+							case 6:
+								return pcpp::LINKTYPE_IPV6;
+							default:
+								return pcpp::LINKTYPE_ETHERNET;
+						}
 					}
 					return pcpp::LINKTYPE_INVALID;
 				default:
@@ -369,8 +341,6 @@ namespace pcap {
 		PacketMonitorCloseSessionHandleFn closeSessionHandle = nullptr;
 		PacketMonitorCloseRealtimeStreamFn closeRealtimeStream = nullptr;
 		PacketMonitorAddCaptureConstraintFn addCaptureConstraint = nullptr;
-		PacketMonitorEnumDataSourcesFn enumDataSources = nullptr;
-		PacketMonitorAddSingleDataSourceToSessionFn addSingleDataSourceToSession = nullptr;
 
 		PktmonAddFilterFn addLegacyFilter = nullptr;
 		PktmonRemoveAllFiltersFn removeAllLegacyFilters = nullptr;
@@ -387,6 +357,17 @@ namespace pcap {
 
 		~Impl() {
 			close();
+		}
+
+		[[nodiscard]] std::string_view backendName() const {
+			switch (backend) {
+				case Backend::realtime:
+					return "realtime";
+				case Backend::legacy:
+					return "legacy";
+				default:
+					return "none";
+			}
 		}
 
 		bool loadApi() {
@@ -494,45 +475,7 @@ namespace pcap {
 				return false;
 			}
 
-			addNetworkInterfaceDataSources();
 			return true;
-		}
-
-		void addNetworkInterfaceDataSources() {
-			if (enumDataSources == nullptr || addSingleDataSourceToSession == nullptr) {
-				return;
-			}
-
-			SIZE_T bytesNeeded = 0;
-			HRESULT result = enumDataSources(monitorHandle, PktMonDataSourceKind::networkInterface, FALSE, 0, &bytesNeeded, nullptr);
-			if (bytesNeeded == 0) {
-
-				return;
-			}
-
-			std::vector<uint8_t> buffer(bytesNeeded);
-			result = enumDataSources(monitorHandle, PktMonDataSourceKind::networkInterface, FALSE, buffer.size(), &bytesNeeded, reinterpret_cast<PktMonDataSourceList *>(buffer.data()));
-			if (FAILED(result)) {
-				debug::log("PktMon: data source enumeration failed ({:#x}), capturing all components", static_cast<uint32_t>(result));
-				return;
-			}
-
-			auto *dataSourceList = reinterpret_cast<PktMonDataSourceList *>(buffer.data());
-			if (dataSourceList == nullptr || dataSourceList->numDataSources == 0) {
-				return;
-			}
-
-			for (uint32_t index = 0; index < dataSourceList->numDataSources; ++index) {
-				const auto *dataSource = dataSourceList->dataSources[index];
-				if (dataSource == nullptr) {
-					continue;
-				}
-
-				result = addSingleDataSourceToSession(session, dataSource);
-				if (FAILED(result)) {
-					debug::log("PktMon: failed to add data source {} ({:#x})", index, static_cast<uint32_t>(result));
-				}
-			}
 		}
 
 		void cleanupRealtime() {
@@ -805,7 +748,10 @@ namespace pcap {
 			}
 
 			traceThread = std::thread([this]() {
-				ProcessTrace(&traceHandle, 1, nullptr, nullptr);
+				auto error = ProcessTrace(&traceHandle, 1, nullptr, nullptr);
+				if (error != ERROR_SUCCESS) {
+					debug::log("PktMon: ProcessTrace returned error {}", error);
+				}
 			});
 			return true;
 		}
@@ -813,15 +759,9 @@ namespace pcap {
 		bool startDriverCapture() {
 			PktMonStartParams params = {};
 			params.captureType = 1;
-			params.mode = 2;
+			params.mode = 1;
 
 			auto error = startLegacyCapture(&params, nullptr);
-			if (error != pktMonStatusCode) {
-				debug::log("PktMon: PktmonStart (NICs only) failed with error {}, retrying with all components", error);
-				params.mode = 1;
-				error = startLegacyCapture(&params, nullptr);
-			}
-
 			if (error != pktMonStatusCode) {
 				debug::log("PktMon: PktmonStart failed with error {}", error);
 				return false;
@@ -984,10 +924,6 @@ namespace pcap {
 				return;
 			}
 
-			if (packetType != 1 && packetType != 2) {
-				return;
-			}
-
 			self->getProperty(eventRecord, L"ComponentId", componentId);
 			self->getProperty(eventRecord, L"DirTag", direction);
 			self->getProperty(eventRecord, L"PktGroupId", pktGroupId);
@@ -1041,6 +977,10 @@ namespace pcap {
 
 	bool PktMonDevice::isOpened() const {
 		return m_impl->opened;
+	}
+
+	std::string_view PktMonDevice::getBackendName() const {
+		return m_impl->backendName();
 	}
 
 	bool PktMonDevice::addFilter(const Filter &filter) {
